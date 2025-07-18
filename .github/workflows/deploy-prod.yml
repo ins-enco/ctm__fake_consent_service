@@ -1,0 +1,48 @@
+name: Deploy to Production
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Release"]
+    types:
+      - completed
+
+permissions:
+  contents: read
+  packages: read
+  actions: read
+
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+  IMAGE_TAG: ${{ github.ref_name }}
+  DEPLOYMENT_FILE: docker-stack-deploy.yml
+  STACK_NAME: pammboo2
+  FRONTEND_SERVICE_NAME: app
+  DOMAIN_NAME: pamboo2.s6.mis.io.vn
+  CERT_RESOLVER: letsencrypt-ins
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      - name: Deploy to Docker Swarm
+        uses: cssnr/stack-deploy-action@v1
+        with:
+          host: ${{ secrets.DOCKER_HOST_S6 }}
+          user: ${{ secrets.DOCKER_USER_S6 }}
+          ssh_key: ${{ secrets.DOCKER_SSH_KEY_S6 }}
+          registry_auth: true
+          registry_host: ${{ env.REGISTRY }}
+          registry_user: ${{ github.actor }}
+          registry_pass: ${{ secrets.GITHUB_TOKEN }}
+          name: ${{ env.STACK_NAME }}
+          file: ${{ env.DEPLOYMENT_FILE }}
+
+      - name: Cleanup
+        if: always()
+        run: rm -f docker_ssh_key
