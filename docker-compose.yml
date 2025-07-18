@@ -1,0 +1,77 @@
+version: '3.8'
+
+services:
+  # Broker Consent Application
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        - DATABASE_URL=${DATABASE_URL}
+        - CTM_API_URL=${CTM_API_URL}
+    container_name: pammboo2-consent-app
+    ports:
+      - "${HOST_PORT:-3000}:3000"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - CTM_API_URL=${CTM_API_URL}
+      - NODE_ENV=production
+    depends_on:
+      - database
+    restart: unless-stopped
+    networks:
+      - consent-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:3000/api/hello"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # MySQL Database
+  database:
+    image: mysql:8.0
+    container_name: pammboo2-database
+    environment:
+      - MYSQL_ROOT_PASSWORD=${MYSQL_ROOT_PASSWORD:-root_password}
+      - MYSQL_DATABASE=${MYSQL_DATABASE:-pammboo2}
+      - MYSQL_USER=${MYSQL_USER:-pammboo_user}
+      - MYSQL_PASSWORD=${MYSQL_PASSWORD:-pammboo_password}
+    ports:
+      - "${MYSQL_PORT:-3306}:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./prisma/migrations:/docker-entrypoint-initdb.d/migrations
+    restart: unless-stopped
+    networks:
+      - consent-network
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Prisma Studio (Optional - for database management)
+  prisma-studio:
+    build:
+      context: .
+      dockerfile: Dockerfile.prisma-studio
+    container_name: pammboo2-prisma-studio
+    ports:
+      - "${PRISMA_STUDIO_PORT:-5555}:5555"
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+    depends_on:
+      - database
+    profiles:
+      - dev
+    networks:
+      - consent-network
+
+networks:
+  consent-network:
+    driver: bridge
+
+volumes:
+  mysql_data:
+    driver: local

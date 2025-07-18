@@ -1,0 +1,30 @@
+services:
+  app:
+    image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
+    deploy:
+      replicas: 1
+      update_config:
+        parallelism: 1
+      placement:
+        constraints:
+          - node.platform.os == linux
+      labels:
+        - "traefik.enable=true"
+        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.rule=Host(`${DOMAIN_NAME}`)"
+        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.entrypoints=websecure"
+        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.tls=true"
+        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.tls.certresolver=${CERT_RESOLVER}"
+        - "traefik.http.services.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.loadbalancer.server.port=3000"
+        - "traefik.swarm.network=traefik-net"
+    volumes:
+      - /mnt/docker/pamboo2:/usr/src/app/mt4-statement-generator
+    environment:
+      - DATABASE_URL=${DATABASE_URL}
+      - CTM_API_URL=${CTM_API_URL}
+    networks:
+      - traefik-net
+    restart: always
+
+networks:
+  traefik-net:
+    external: true   # Use the existing 'deploy-net' created for Nginx
