@@ -1,10 +1,10 @@
-# Broker Consent Workflow System
+# CTM Fake Consent Service
 
-A streamlined Nuxt 3 application providing broker consent and authentication services for integrating with CTM broker platform.
+A streamlined Nuxt 3 application providing fake broker consent and authentication services for testing and development with the CTM platform.
 
 ## 🎯 Overview
 
-This application provides a focused broker consent workflow with three main features:
+This application provides a focused fake broker consent workflow with three main features:
 
 1. **Broker Authentication** - Login page for broker credentials
 2. **Consent Approval Process** - Detailed consent form for data sharing approval
@@ -18,14 +18,13 @@ This application provides a focused broker consent workflow with three main feat
 - **Dev Testing Dashboard** (`/accept-consent-dev-test/dashboard`) - Callback URL validation for integration testing
 
 ### API Endpoints
-- `GET /api/brokers` - Retrieve MT4 trading data (daily, users, trades)
+- `GET /api/brokers` - Retrieve mock MT4 trading data (daily, users, trades)
 - `POST /api/user/consent/accept.json` - Process consent approval with validation
 - `GET /api/hello` - Health check endpoint
 
 ## 📋 Prerequisites
 
 - Node.js 18+ 
-- MySQL database
 - npm/pnpm/yarn package manager
 
 ## ⚙️ Installation & Setup
@@ -33,8 +32,8 @@ This application provides a focused broker consent workflow with three main feat
 ### 1. Clone and Install Dependencies
 
 ```bash
-git clone <repository-url>
-cd pammboo2
+git clone https://github.com/ins-enco/ctm__fake_consent_service.git
+cd ctm__fake_consent_service
 npm install
 ```
 
@@ -43,27 +42,15 @@ npm install
 Create a `.env` file in the root directory:
 
 ```env
-# Database Configuration
-DATABASE_URL="mysql://username:password@host:port/database_name"
-
 # CTM API Configuration  
 CTM_API_URL="http://localhost:3000"
+
+# Application Configuration
+APPNAME="CTM Fake Consent Service"
+BASE_URL="http://localhost:3000"
 ```
 
-### 3. Database Setup
-
-```bash
-# Generate Prisma client
-npx prisma generate
-
-# Run database migrations
-npx prisma migrate deploy
-
-# (Optional) Open Prisma Studio to view data
-npx prisma studio
-```
-
-### 4. Development Server
+### 3. Development Server
 
 Start the development server on `http://localhost:3000`:
 
@@ -71,7 +58,7 @@ Start the development server on `http://localhost:3000`:
 npm run dev
 ```
 
-### 5. Production Build
+### 4. Production Build
 
 ```bash
 # Build for production
@@ -83,6 +70,20 @@ npm run preview
 # Start production server
 node .output/server/index.mjs
 ```
+
+## 🧪 Testing
+
+Run the unit test suite:
+
+```bash
+npm test
+```
+
+The test suite validates:
+- Mock API endpoint responses
+- Consent form validation logic
+- Schema validation for user data
+- API response structures
 
 ## 🔧 Usage Guide
 
@@ -128,12 +129,25 @@ POST /api/user/consent/accept.json?userId=123&brokerId=789
 Content-Type: application/json
 
 {
-  "accountId": 456,
-  "strategyId": 101,
-  "approved": true,
-  "userData": {
-    "name": "John Doe",
-    "email": "john@example.com"
+  "PersonalDetails": {
+    "FirstName": "John",
+    "LastName": "Doe",
+    "Email": "john@example.com"
+  },
+  "Address": {
+    "Street": "123 Main St",
+    "City": "New York",
+    "Country": "USA"
+  },
+  "IdentificationDocument": {
+    "Passport": "Passport",
+    "PpNo": "P123456789"
+  },
+  "EducationAndProfession": {
+    "Profession": "Software Engineer"
+  },
+  "WealthAndIncome": {
+    "Amount": 50000
   }
 }
 ```
@@ -144,7 +158,7 @@ Content-Type: application/json
 GET /api/brokers
 ```
 
-Returns MT4 trading data including daily records, user information, and trade history.
+Returns mock MT4 trading data including daily records, user information, and trade history.
 
 ## 🐳 Docker Deployment
 
@@ -167,27 +181,14 @@ The application will be available at `http://localhost:3000`.
 
 ```bash
 # Build image
-docker build -t pammboo2 .
+docker build -t ctm-fake-consent-service .
 
 # Run container
 docker run -d \
   -p 3000:3000 \
-  -e DATABASE_URL="mysql://user:pass@host:port/db" \
   -e CTM_API_URL="http://localhost:3000" \
-  pammboo2
+  ctm-fake-consent-service
 ```
-
-## 🧪 Testing
-
-```bash
-# Run test suite
-npm test
-```
-
-The test suite validates:
-- Consent form validation logic
-- API endpoint responses
-- Database connection integrity
 
 ## 📂 Project Structure
 
@@ -204,31 +205,20 @@ The test suite validates:
 │       └── broker-consent-middleware.ts   # Auth middleware
 ├── server/
 │   ├── api/
-│   │   ├── brokers.ts                     # MT4 data endpoint
+│   │   ├── brokers.ts                     # Mock MT4 data endpoint
+│   │   ├── hello.ts                       # Health check endpoint
 │   │   └── user/consent/
 │   │       └── accept.json.post.ts        # Consent API
 │   └── utils/
 │       └── schema/
 │           └── AcceptConsentSchema.ts     # Validation schema
-├── prisma/
-│   └── schema.prisma                      # Database schema
+├── tests/
+│   ├── api/                               # API endpoint tests
+│   └── schemas/                           # Schema validation tests
 └── docker-compose.yml                     # Container setup
 ```
 
 ## 🛠️ Development
-
-### Database Migrations
-
-```bash
-# Create new migration
-npx prisma migrate dev --name migration_name
-
-# Reset database (development only)
-npx prisma migrate reset
-
-# Deploy to production
-npx prisma migrate deploy
-```
 
 ### Code Formatting
 
@@ -241,33 +231,26 @@ npx prettier --write .
 
 | Variable | Description | Required |
 |----------|-------------|----------|
-| `DATABASE_URL` | MySQL connection string | Yes |
 | `CTM_API_URL` | CTM API base URL | Yes |
-| `HOST_PORT` | Docker host port mapping | No (Docker only) |
-| `CONTAINER_NAME` | Docker container name | No (Docker only) |
+| `APPNAME` | Application name | No |
+| `BASE_URL` | Base URL for the application | No |
 
 ## 🔍 Troubleshooting
 
 ### Common Issues
 
-1. **Database Connection Failed**
-   ```bash
-   # Check database connectivity
-   npx prisma db pull
-   ```
-
-2. **Prisma Client Not Generated**
-   ```bash
-   # Regenerate client
-   npx prisma generate
-   ```
-
-3. **Build Errors**
+1. **Build Errors**
    ```bash
    # Clear cache and rebuild
    rm -rf .nuxt .output node_modules
    npm install
    npm run build
+   ```
+
+2. **Test Failures**
+   ```bash
+   # Run tests in verbose mode
+   npm test -- --verbose
    ```
 
 ### Docker Issues
@@ -281,20 +264,28 @@ npx prettier --write .
    docker-compose build --no-cache
    ```
 
-2. **Database Connection in Docker**
-   - Ensure `DATABASE_URL` uses correct host (not localhost in containers)
-   - Use service names for internal container communication
-
 ## 📚 Additional Resources
 
 - [Nuxt 3 Documentation](https://nuxt.com/docs)
-- [Prisma Documentation](https://www.prisma.io/docs/)
 - [Docker Compose Documentation](https://docs.docker.com/compose/)
+- [Jest Testing Framework](https://jestjs.io/)
 
 ## 🆘 Support
 
-For technical support or questions about the broker consent workflow:
+For technical support or questions about the fake consent service:
 
 1. Check the troubleshooting section above
 2. Review application logs: `docker-compose logs -f`
-3. Validate environment variables and database connectivity
+3. Run tests to validate functionality: `npm test`
+4. Verify environment variables are properly set
+
+## 📝 Changes Made
+
+This service has been refactored from the original database-dependent version:
+
+- ✅ Removed Prisma database dependencies
+- ✅ Replaced database queries with mock data
+- ✅ Added comprehensive unit tests
+- ✅ Simplified setup (no database required)
+- ✅ Maintained all original API interfaces
+- ✅ Docker support for easy deployment

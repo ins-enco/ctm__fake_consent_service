@@ -1,5 +1,5 @@
 {
-  "name": "pammboo2",
+  "name": "ctm-fake-consent-service",
   "private": true,
   "type": "module",
   "scripts": {
@@ -14,7 +14,6 @@
     "@nuxt/ui": "^2.18.4",
     "@nuxtjs/tailwindcss": "^6.12.1",
     "@pinia/nuxt": "^0.5.2",
-    "@prisma/client": "^5.18.0",
     "axios": "^1.7.2",
     "cheerio": "^1.0.0",
     "date-fns": "^2.30.0",
@@ -37,7 +36,6 @@
     "nuxt-lodash": "^2.5.3",
     "prettier": "^3.3.3",
     "prettier-plugin-tailwindcss": "^0.6.6",
-    "prisma": "^5.17.0",
     "ts-jest": "^29.2.5",
     "typescript": "^5.5.3"
   },
