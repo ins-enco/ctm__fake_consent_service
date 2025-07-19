@@ -26,9 +26,8 @@ export default defineNuxtConfig({
   ],
   runtimeConfig: {
     //define variables available only on the server side
-    DATABASE_URL: process.env.DATABASE_URL,
     public: {
-      APPNAME: process.env.APPNAME || "Pammbo2",
+      APPNAME: process.env.APPNAME || "CTM Fake Consent Service",
       baseURL: process.env.BASE_URL || "http://localhost:3000", // Default for development
       apiUrl: process.env.CTM_API_URL || "http://localhost:8080/api",
     },
