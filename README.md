@@ -18,7 +18,6 @@ This application provides a focused fake broker consent workflow with three main
 - **Dev Testing Dashboard** (`/accept-consent-dev-test/dashboard`) - Callback URL validation for integration testing
 
 ### API Endpoints
-- `GET /api/brokers` - Retrieve mock MT4 trading data (daily, users, trades)
 - `POST /api/user/consent/accept.json` - Process consent approval with validation
 - `GET /api/hello` - Health check endpoint
 
@@ -152,13 +151,7 @@ Content-Type: application/json
 }
 ```
 
-#### Broker Data API
 
-```bash
-GET /api/brokers
-```
-
-Returns mock MT4 trading data including daily records, user information, and trade history.
 
 ## 🐳 Docker Deployment
 
@@ -205,7 +198,6 @@ docker run -d \
 │       └── broker-consent-middleware.ts   # Auth middleware
 ├── server/
 │   ├── api/
-│   │   ├── brokers.ts                     # Mock MT4 data endpoint
 │   │   ├── hello.ts                       # Health check endpoint
 │   │   └── user/consent/
 │   │       └── accept.json.post.ts        # Consent API
