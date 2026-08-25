@@ -1,3 +1,11 @@
+# Docker Swarm stack for the CTM preprod swarm (c27/c29/c30 managers, c30v2 worker),
+# deployed via Portainer (Stacks -> Repository -> this file) after release.yml
+# pushes a new image tag to GHCR.
+#
+# Pinned to c30v2 (the only node labeled env=dev) and published with mode: host
+# rather than the default ingress routing mesh, so the port only opens on c30v2 —
+# which has no public IP of its own (only 10.28.30.102, NATed behind c30) — instead
+# of on every swarm node, several of which do have public IPs.
 services:
   app:
     image: ${REGISTRY}/${IMAGE_NAME}:${IMAGE_TAG}
@@ -5,26 +13,26 @@ services:
       replicas: 1
       update_config:
         parallelism: 1
+      restart_policy:
+        condition: on-failure
       placement:
         constraints:
-          - node.platform.os == linux
-      labels:
-        - "traefik.enable=true"
-        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.rule=Host(`${DOMAIN_NAME}`)"
-        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.entrypoints=websecure"
-        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.tls=true"
-        - "traefik.http.routers.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.tls.certresolver=${CERT_RESOLVER}"
-        - "traefik.http.services.${STACK_NAME}_${FRONTEND_SERVICE_NAME}.loadbalancer.server.port=3000"
-        - "traefik.swarm.network=traefik-net"
-    volumes:
-      - /mnt/docker/pamboo2:/usr/src/app/mt4-statement-generator
+          - node.labels.env == dev
+    ports:
+      - target: 3000
+        published: ${APP_PORT:-3000}
+        protocol: tcp
+        mode: host
     environment:
-      - DATABASE_URL=${DATABASE_URL}
-      - CTM_API_URL=${CTM_API_URL}
-    networks:
-      - traefik-net
-    restart: always
-
-networks:
-  traefik-net:
-    external: true   # Use the existing 'deploy-net' created for Nginx
+      - NODE_ENV=production
+      - APPNAME=${APPNAME:-CTM Fake Consent Service}
+      - BASE_URL=${BASE_URL}
+      - CTM_API_URL=${CTM_API_URL:-}
+      - CTM_DB_HOST=${CTM_DB_HOST}
+      - CTM_DB_PORT=${CTM_DB_PORT}
+      - CTM_DB_NAME=${CTM_DB_NAME}
+      - CTM_DB_USER=${CTM_DB_USER}
+      - CTM_DB_PASS=${CTM_DB_PASS}
+      - DB_PATCH_TOOL_KEY=${DB_PATCH_TOOL_KEY}
+      - CONSENT_AUTOPATCH_ON_LOGIN=${CONSENT_AUTOPATCH_ON_LOGIN:-false}
+      - CONSENT_RETURN_URL=${CONSENT_RETURN_URL:-}
