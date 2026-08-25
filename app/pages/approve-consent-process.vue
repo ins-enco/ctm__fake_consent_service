@@ -47,11 +47,11 @@
           Decline
         </button>
         <button
-          :disabled="!isConsentApproved"
+          :disabled="!isConsentApproved || isLoading"
           @click="handleApprove"
           class="rounded-lg bg-blue-500 px-4 py-2 text-sm font-semibold text-white hover:bg-blue-600 disabled:cursor-not-allowed disabled:bg-gray-700"
         >
-          Approve
+          {{ isLoading ? "Submitting..." : "Approve" }}
         </button>
       </div>
     </div>
@@ -70,13 +70,85 @@ definePageMeta({
 });
 
 const {
-  public: { apiUrl },
+  public: { consentReturnUrl },
 } = useRuntimeConfig();
 
 const router = useRouter();
 const toast = useToast();
 const { isLoading, hideLoader, showLoader } = useLoader();
+const { resolve: resolveOriginSite, clear: clearOriginSite } = useOriginSite();
 const isConsentApproved = ref(false);
+
+/**
+ * Build the callback URL we hand control back to.
+ *
+ * Two different spellings are emitted on purpose, because two different
+ * consumers read this callback and they disagree:
+ *
+ *   consentApproved=true|false — what the real portal reads. See ctm_fe's
+ *     useSfBrokerConsentCallback: it is mounted on the dashboard, accepts only
+ *     the literal "true"/"false", and on "true" navigates to the onboarding
+ *     setup step with `awaitConsentCheck`, which is what starts the
+ *     consent-check polling. On "false" it flags manual setup and goes straight
+ *     to the KYC form.
+ *   consentApprove=yes|no — what this service's own dev-test dashboard
+ *     validates.
+ *
+ * Both are harmless to the other: each consumer reads its own key and ignores
+ * unknown params, so emitting both keeps one redirect working against the real
+ * portal and the local verifier alike.
+ */
+const buildCallbackUrl = (approved) => {
+  const { userId, accountId, brokerId, strategyId, returnUrl } =
+    router.currentRoute.value.query;
+
+  // Where to hand control back to, in order of preference:
+  //   1. an explicit ?returnUrl= — CTM does not send one, but it makes manual
+  //      testing and any future caller that can supply it straightforward;
+  //   2. CONSENT_RETURN_URL — the configured address of the pending onboarding.
+  //      This is the intended mechanism: the redirect journey does not poll
+  //      consent-check (FR-015), so the broker must actively return the follower
+  //      to the portal for onboarding to resume. The backend resolves Docusign
+  //      returns the same way, from config rather than from request context;
+  //   3. the origin site captured at the login page, as a best-effort guess when
+  //      nothing is configured;
+  //   4. the local dev-test dashboard, so the flow stays walkable standalone.
+  let target = null;
+  if (typeof returnUrl === "string" && returnUrl) {
+    target = returnUrl;
+  } else if (consentReturnUrl) {
+    target = consentReturnUrl;
+  } else {
+    target = resolveOriginSite();
+  }
+
+  // Merge via the URL API rather than string concatenation: the target may
+  // already carry its own query string, and appending `?a=b` to it produced a
+  // mangled URL that resolved to the wrong route entirely.
+  // Fall back to the dev-test dashboard on the origin actually serving this
+  // page, not on BASE_URL — the two differ whenever the app runs on another
+  // host or port, and the env value would send the user somewhere dead.
+  const url = new URL(
+    target ?? `${window.location.origin}/accept-consent-dev-test/dashboard`,
+  );
+  for (const [key, value] of Object.entries({
+    brokerId,
+    userId,
+    accountId,
+    strategyId,
+    consentApproved: approved ? "true" : "false", // the real portal
+    consentApprove: approved ? "yes" : "no", // this service's dev-test dashboard
+  })) {
+    if (value !== undefined && value !== null) {
+      url.searchParams.set(key, String(value));
+    }
+  }
+  return url.toString();
+};
+// This page is the Standard journey (ConsentType = 1): CTM redirects the whole
+// page here with userId/accountId/brokerId/strategyId, and the handover body is
+// never inspected by the read path — so the PersonalDetails payload is correct.
+// The Legacy (ConsentType = 0) journey is a popup and lives in my-syntellicore.vue.
 // Handle consent approval
 const handleApprove = async () => {
   const { userId, accountId, brokerId, strategyId } =
@@ -86,64 +158,17 @@ const handleApprove = async () => {
   }
   try {
     showLoader();
+    // Same-origin, relative on purpose. This service hosts its own mock of the
+    // consent-accept endpoint, and an absolute apiUrl breaks as soon as the app
+    // is served from anywhere other than that exact host: browsing on :3010
+    // while CTM_API_URL says localhost:3000 makes this a cross-origin POST,
+    // which Nitro answers without CORS headers, so the fetch throws and the
+    // approval silently does nothing.
     const data = await fetch(
-      `${apiUrl}/api/user/consent/accept.json?userId=${userId}&brokerId=${brokerId}`,
+      `/api/user/consent/accept.json?userId=${userId}&brokerId=${brokerId}`,
       {
         method: "POST",
-        body: JSON.stringify({
-          PersonalDetails: {
-            ID: "123456",
-            UserID: "user_001",
-            Salutation: "Mr",
-            Title: "PhD",
-            FirstName: "John",
-            LastName: "Doe",
-            BirthName: "Jonathan",
-            DateOfBirth: "1990-01-15",
-            PlaceOfBirth: "New York",
-            CountryOfBirth: "USA",
-            NumberOfDependentChildren: 2,
-          },
-          Address: {
-            Street: "Main St",
-            ExtraAddress: "Apartment 5B",
-            HouseNumber: "123",
-            Zip: "10001",
-            City: "New York",
-            Country: "USA",
-            Citizenship: "American",
-            Email: "john.doe@example.com",
-            Fax: "+1-123-456-7890",
-            Phone: "+1-987-654-3210",
-          },
-          IdentificationDocument: {
-            Passport: "Passport",
-            PpNo: "P987654321",
-            PpIssueDate: "2015-06-20",
-            PpExpiryDate: "2025-06-19",
-            TaxResidency: "USA",
-            VATNo: "US123456789",
-            IsPEP: false,
-          },
-          EducationAndProfession: {
-            Profession: "Software Developer",
-            EducationLevel: "Master",
-            MyEducation: "Computer Science",
-            EmploymentMode: "Employed",
-            EmployedAt: "Tech Solutions Inc.",
-            CompanyName: "Tech Solutions",
-            AddressOfEmployer: "456 Tech Avenue, Silicon Valley, CA",
-          },
-          WealthAndIncome: {
-            OriginMittel: ["Salary", "Business profits", "Heritage"],
-            OriginVermoegen: "Savings",
-            AnnualNetIncome: "75000",
-            BankTransferOrigin: "Yes",
-            ClientBank: "Bank of America",
-            ClientIban: "US12345678901234567890",
-            Amount: "15000",
-          },
-        }),
+        body: JSON.stringify(SAMPLE_CONSENT_PAYLOAD),
         headers: {
           "Content-Type": "application/json",
         },
@@ -158,7 +183,11 @@ const handleApprove = async () => {
         color: "green",
       });
       // Redirect user to the next step
-      window.location.href = `${document.referrer}dashboard?brokerId=${brokerId}&userId=${userId}&accountId=${accountId}&strategyId=${strategyId}&consentApproved=true`;
+      // Resolve the target before clearing, then drop the captured origin so a
+      // later unrelated flow in this tab cannot inherit it.
+      const callbackUrl = buildCallbackUrl(true);
+      clearOriginSite();
+      window.location.href = callbackUrl;
     } else {
       toast.add({
         id: "consent_error",
@@ -179,8 +208,22 @@ const handleApprove = async () => {
   }
 };
 
-const handleDecline = () => {
-  window.location.href = `${document.referrer}dashboard?consentApproved=false`;
+const handleDecline = async () => {
+  // Record the decline so a consent session exists at Status=0. Without a row,
+  // consent-check throws NotFound rather than reporting "not granted".
+  const { userId, brokerId } = router.currentRoute.value.query;
+  try {
+    await $fetch("/api/user-consent/decline", {
+      method: "POST",
+      body: { userId, brokerId },
+    });
+  } catch {
+    // Best-effort — the redirect below still has to happen.
+  }
+
+  const callbackUrl = buildCallbackUrl(false);
+  clearOriginSite();
+  window.location.href = callbackUrl;
 };
 </script>
 
