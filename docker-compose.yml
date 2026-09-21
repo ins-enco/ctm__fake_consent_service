@@ -15,14 +15,18 @@ services:
     environment:
       - DATABASE_URL=${DATABASE_URL}
       - CTM_API_URL=${CTM_API_URL}
+      - NUXT_DB_PATCH_TOOL_HOST=${CTM_DB_HOST}
+      - NUXT_DB_PATCH_TOOL_PORT=${CTM_DB_PORT:-3306}
+      - NUXT_DB_PATCH_TOOL_DATABASE=${CTM_DB_NAME}
+      - NUXT_DB_PATCH_TOOL_USER=${CTM_DB_USER}
+      - NUXT_DB_PATCH_TOOL_PASSWORD=${CTM_DB_PASS}
+      - NUXT_DB_PATCH_TOOL_KEY=${DB_PATCH_TOOL_KEY}
       - NODE_ENV=production
-    depends_on:
-      - database
     restart: unless-stopped
     networks:
       - consent-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:3000/api/hello"]
+      test: ["CMD", "node", "-e", "fetch('http://localhost:3000/api/hello').then(r => { if (!r.ok) process.exit(1) }).catch(() => process.exit(1))"]
       interval: 30s
       timeout: 10s
       retries: 3
@@ -43,6 +47,8 @@ services:
       - mysql_data:/var/lib/mysql
       - ./prisma/migrations:/docker-entrypoint-initdb.d/migrations
     restart: unless-stopped
+    profiles:
+      - local-db
     networks:
       - consent-network
     healthcheck:

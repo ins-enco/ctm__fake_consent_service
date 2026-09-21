@@ -41,9 +41,28 @@
  * requirements are triggered.
  */
 
+import { SAMPLE_CONSENT_PAYLOAD } from "./consentPayload";
+
 export interface KycDraftFixture {
   columns: Record<string, string | number | null>;
   jsonData: Record<string, unknown>;
+}
+
+/**
+ * CTM's KYCInfo.ClientSex only accepts "Mr." or "Ms." (with the period) — see
+ * [AllowedValues(null, "", "Mr.", "Ms.")] on
+ * KycPersonalInformationRequest.Salutation in CTM_Admin_Backend. The broker
+ * handover's own Salutation ("Mr" | "Ms" | "Mrs" | "Other", no period — see
+ * AcceptConsentSchema.ts) is a different domain and must not be copied
+ * verbatim, so this derives the CTM-shaped value from the one broker-shaped
+ * source of truth instead of hardcoding an independent literal that can drift.
+ * "Mrs"/"Other" have no CTM equivalent and fall back to null (blank —
+ * Salutation is optional on submit, see 147-fix-salutation-optional).
+ */
+export function toCtmSalutation(brokerSalutation: string): "Mr." | "Ms." | null {
+  if (brokerSalutation === "Mr") return "Mr.";
+  if (brokerSalutation === "Ms") return "Ms.";
+  return null;
 }
 
 export function buildKycDraft(overrides: Partial<{
@@ -53,7 +72,7 @@ export function buildKycDraft(overrides: Partial<{
 }> = {}): KycDraftFixture {
   return {
     columns: {
-      ClientSex: "Mr.",
+      ClientSex: toCtmSalutation(SAMPLE_CONSENT_PAYLOAD.PersonalDetails.Salutation) ?? "Mr.",
       Title: "PhD",
       FirstName: overrides.firstName ?? "John",
       LastName: overrides.lastName ?? "Doe",
@@ -89,7 +108,12 @@ export function buildKycDraft(overrides: Partial<{
       houseNumber: "123",
       taxNumber: "US123456789",
       // professionBeforeRetirement omitted — only required when Retired
-      originOfInvestedMoney: ["Business profits", "Heritage"],
+      // Title Case, matching AllowedOriginOfInvestedMoneyAttribute's Ordinal (case-sensitive)
+      // comparison in CTM_Admin_Backend exactly — NOT the broker handover's own lowercase
+      // "Business profits"/"Other profits" (AcceptConsentSchema.ts), which is a different,
+      // unvalidated-by-CTM domain. A pre-filled draft using the wrong case would fail
+      // CTM's own KycPersonalInformationRequest validation on resubmission.
+      originOfInvestedMoney: ["Business Profits", "Other Profits", "Heritage"],
       annualIncome: 75000, // number, not "75000"
     },
   };
