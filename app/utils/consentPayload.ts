@@ -36,7 +36,7 @@ export const SAMPLE_CONSENT_PAYLOAD = {
     Passport: "Passport",
     PpNo: "P987654321",
     PpIssueDate: "2015-06-20",
-    PpExpiryDate: "2025-06-19",
+    PpExpiryDate: "2030-06-19",
     TaxResidency: "USA",
     VATNo: "US123456789",
     IsPEP: false,

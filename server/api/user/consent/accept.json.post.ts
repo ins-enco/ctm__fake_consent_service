@@ -30,14 +30,13 @@ export default defineEventHandler(async (event) => {
     });
   }
 
-  // Persist on accept, and seed the KYC draft at the same moment. Accept is when
-  // consent is actually given — writing at login instead would record a grant
-  // for someone who then declines. The KYC draft has to be written explicitly
-  // because the form reads it from KYCInfo and never from the handover body.
-  // Inert unless the database is configured.
+  // Persist on accept. Accept is when consent is actually given — writing at
+  // login instead would record a grant for someone who then declines. Inert
+  // unless the database is configured.
+  //
+  // KYCInfo is deliberately never touched here — see /api/user-consent for why.
   const { dbPatchTool } = useRuntimeConfig(event);
   let persisted = null;
-  let kycSeeded = null;
   if (isDbPatchToolConfigured(dbPatchTool)) {
     try {
       // Resolve the accounts rather than passing none. A Standard broker is not
@@ -54,11 +53,6 @@ export default defineEventHandler(async (event) => {
         brokerId: Number(brokerId),
         accountNumbers: handoverAccountNumbers(accounts),
       });
-      try {
-        kycSeeded = await seedKycDraft(dbPatchTool, { userId: Number(userId) });
-      } catch (error: any) {
-        kycSeeded = { error: error?.message ?? "Failed to seed the KYC draft" };
-      }
     } catch (error: any) {
       persisted = { error: error?.message ?? "Failed to persist consent" };
     }
@@ -92,7 +86,6 @@ export default defineEventHandler(async (event) => {
         UserID: String(userId),
         BrokerID: String(brokerId),
         Persisted: persisted,
-        KycDraft: kycSeeded,
       },
     },
   };

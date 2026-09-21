@@ -684,24 +684,26 @@ export function handoverAccountNumbers(accounts: ResolvedAccount[]): string[] {
 // ── decline ─────────────────────────────────────────────────────────────────────
 
 /**
- * Record a declined consent, by removing the consent session entirely.
+ * Record a declined consent as a row at Status=0.
  *
- * Deleting rather than setting Status=0, and the reason matters. Status=0 makes
- * CheckConsentAsync answer 200 {completed:false}, and the portal's poll has no
- * timeout at all — "the system never times out; the contract places timeout
- * handling entirely in the portal" — so on the Legacy journey the follower sits
- * on "your account is connecting" indefinitely. With no row, CheckConsentAsync
- * throws NotFound, the poll settles to error, and the portal returns them to the
- * dashboard. A generic error beats being trapped.
+ * Keeping a row rather than deleting it, and the reason matters.
+ * CheckConsentAsync throws NotFound only when no row exists at all, so an absent
+ * row turns a legitimate "not consented" answer into an error response. Leaving
+ * the row at Status=0 keeps consent-check answering 200 for every consent state
+ * — decline included — so the caller reads a boolean instead of handling a 404.
  *
- * This matters because the Legacy popup cannot tell the portal it was declined:
- * the portal's completion signals are a same-origin BroadcastChannel (unreachable
- * cross-origin) and the popup closing, which only ever means "now go poll". The
- * Standard journey is unaffected either way — it carries consentApproved=false
- * back on the URL and routes to manual KYC fill without polling.
+ * Status is forced to 0 whatever it was, so declining after a previous accept
+ * genuinely withdraws it rather than leaving a stale "yes" standing. UserRawData
+ * is left untouched: it is the broker's handover record, not the decision.
  *
- * Deleting also withdraws any prior grant, so declining after a previous accept
- * genuinely revokes it instead of leaving a stale "yes" standing.
+ * Caveat worth knowing: the portal's poll has no timeout — "the system never
+ * times out; the contract places timeout handling entirely in the portal" — so
+ * on the Legacy journey a declined follower keeps polling a steady
+ * {completed:false}. The popup cannot signal a decline (the portal's completion
+ * signals are a same-origin BroadcastChannel, unreachable cross-origin, and the
+ * popup closing, which only ever means "now go poll"), so ending that wait is
+ * the portal's job. The Standard journey is unaffected: it carries
+ * consentApproved=false back on the URL and routes to manual KYC without polling.
  *
  * An empty KYCInfo row is created alongside when `withEmptyKyc` is set, so the
  * follower can fill KYC by hand. Note this is cosmetic — GetDraftAsync already
@@ -726,18 +728,29 @@ export async function declineConsent(
       [userId, brokerId],
     );
 
+    // Always leave a row behind, at Status=0. CheckConsentAsync only throws
+    // NotFound when there is no row at all, so keeping one is what makes
+    // consent-check answer 200 for every consent state, decline included — the
+    // caller gets a plain "not consented" boolean instead of an error.
+    // Status is forced to 0 regardless of what was there, so declining after a
+    // previous accept genuinely withdraws it. UserRawData is left alone: it is
+    // the broker's handover record, not the decision.
     let action: string;
     if (existing.length > 0) {
-      const [deleted] = await conn.execute<any>(
-        "DELETE FROM UserBrokerConsents WHERE UserID = ? AND BrokerID = ?",
-        [userId, brokerId],
+      await conn.execute(
+        "UPDATE UserBrokerConsents SET Status = 0, Timestamp = NOW() WHERE ID = ?",
+        [existing[0].ID],
       );
       action =
         existing[0].Status === 1
-          ? `revoked a previously granted consent — removed ${deleted.affectedRows} row(s)`
-          : `removed ${deleted.affectedRows} not-granted consent row(s)`;
+          ? `withdrew a previously granted consent (row ${existing[0].ID}, Status 1 -> 0)`
+          : `left consent not granted (row ${existing[0].ID}, Status -> 0)`;
     } else {
-      action = "no consent session existed — nothing to remove";
+      await conn.execute(
+        "INSERT INTO UserBrokerConsents (UserID, BrokerID, Status, Timestamp) VALUES (?, ?, 0, NOW())",
+        [userId, brokerId],
+      );
+      action = "created a declined consent row at Status=0";
     }
 
     let kyc = "not requested";

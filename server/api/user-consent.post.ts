@@ -60,9 +60,14 @@ export default defineEventHandler(async (event) => {
   // writes UserBrokerConsent.Status/.UserRawData; returning a canned success
   // without writing would leave consent-check reporting "not yet" forever.
   // Inert unless the database is configured.
+  //
+  // KYCInfo is deliberately never touched here. It used to be seeded from a
+  // hardcoded fixture as a convenience, but that write outranks any
+  // consent-derived prefill (a saved KYCInfo value always wins), which made it
+  // impossible to observe the real consent-to-KYC prefill behavior. The only
+  // write this endpoint makes is to UserBrokerConsent.
   const { dbPatchTool } = useRuntimeConfig(event);
   let persisted = null;
-  let kycSeeded = null;
   if (isDbPatchToolConfigured(dbPatchTool)) {
     try {
       persisted = await grantConsentOnLogin(dbPatchTool, {
@@ -70,18 +75,6 @@ export default defineEventHandler(async (event) => {
         brokerId: Number(identity.brokerId),
         accountNumbers,
       });
-      // Seed the KYC draft here, on accept — this is the moment consent is
-      // actually given, and the Legacy journey has no login step to hang it off
-      // (the popup goes straight to Approve). Without this the follower reaches
-      // a completely empty KYC form: the draft is read from KYCInfo, never from
-      // the datasource1/datasource2 handover we just stored.
-      try {
-        kycSeeded = await seedKycDraft(dbPatchTool, {
-          userId: Number(identity.userId),
-        });
-      } catch (error: any) {
-        kycSeeded = { error: error?.message ?? "Failed to seed the KYC draft" };
-      }
     } catch (error: any) {
       persisted = { error: error?.message ?? "Failed to persist consent" };
     }
@@ -120,7 +113,6 @@ export default defineEventHandler(async (event) => {
         Status: 1,
         AccountNumbers: accountNumbers,
         Persisted: persisted,
-        KycDraft: kycSeeded,
       },
     },
   };
