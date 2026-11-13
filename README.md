@@ -224,6 +224,7 @@ npx prettier --write .
 | Variable | Description | Required |
 |----------|-------------|----------|
 | `CTM_API_URL` | CTM API base URL | Yes |
+| `CTM_BACKEND_URL` | Root of the real CTM_Admin_Backend. When set, `/api/user-consent` and `/api/user/consent/accept.json` are forwarded there (server-side) and the backend's answer is returned as-is; empty = local mock | No |
 | `APPNAME` | Application name | No |
 | `BASE_URL` | Base URL for the application | No |
 

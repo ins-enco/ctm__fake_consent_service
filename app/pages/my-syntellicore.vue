@@ -94,7 +94,14 @@ const handleApprove = async () => {
     toast.add({
       id: "consent_error",
       title: "Error",
-      description: e?.data?.message || "Failed to register consent.",
+      // message: this service's own errors; detail/title: ASP.NET ProblemDetails
+      // from the real backend when the callback is forwarded.
+      description:
+        e?.data?.message ||
+        e?.data?.detail ||
+        e?.data?.title ||
+        (typeof e?.data === "string" ? e.data.slice(0, 300) : "") ||
+        "Failed to register consent.",
       color: "red",
     });
   } finally {
