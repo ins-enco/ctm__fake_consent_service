@@ -1,4 +1,12 @@
+import { BACKEND_STANDARD_CONSENT_PATH } from "~/utils/backendForward";
+
 export default defineEventHandler(async (event) => {
+  // With CTM_BACKEND_URL set, the real backend answers this callback — no local
+  // validation, no local DB write. See server/utils/ctmBackend.ts.
+  if (isCtmBackendConfigured(event)) {
+    return forwardToCtmBackend(event, BACKEND_STANDARD_CONSENT_PATH);
+  }
+
   setHeader(event, "Content-Type", "application/json");
   // Parse query parameters
   const query = getQuery(event);

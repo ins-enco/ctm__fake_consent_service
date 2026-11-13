@@ -30,6 +30,11 @@ export default defineNuxtConfig({
     // Testing shortcut: grant consent when the broker login succeeds, rather
     // than on approval as the real flow does. Off unless set to "true".
     consentAutopatchOnLogin: process.env.CONSENT_AUTOPATCH_ON_LOGIN || "false",
+    // Root of the real CTM_Admin_Backend (e.g. http://localhost:5000). When
+    // set, /api/user-consent and /api/user/consent/accept(.json) are forwarded
+    // there instead of being answered by this service's own mock. Overridable
+    // at runtime with NUXT_CTM_BACKEND_URL.
+    ctmBackendUrl: process.env.CTM_BACKEND_URL || "",
     dbPatchTool: {
       host: process.env.CTM_DB_HOST || "",
       port: process.env.CTM_DB_PORT || "3306",

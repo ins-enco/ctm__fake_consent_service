@@ -28,6 +28,7 @@ services:
       - APPNAME=${APPNAME:-CTM Fake Consent Service}
       - BASE_URL=${BASE_URL}
       - CTM_API_URL=${CTM_API_URL:-}
+      - NUXT_CTM_BACKEND_URL=${CTM_BACKEND_URL:-}
       - CTM_DB_HOST=${CTM_DB_HOST}
       - CTM_DB_PORT=${CTM_DB_PORT}
       - CTM_DB_NAME=${CTM_DB_NAME}

@@ -175,7 +175,9 @@ const handleApprove = async () => {
       },
     );
 
-    if (data.status === 200) {
+    // Any 2xx — when forwarded, the real backend answers, and it need not use
+    // exactly 200 the way the local mock does.
+    if (data.ok) {
       toast.add({
         id: "consent_success",
         title: "Success",
@@ -189,10 +191,16 @@ const handleApprove = async () => {
       clearOriginSite();
       window.location.href = callbackUrl;
     } else {
+      // Surface what the backend said — when testing the real endpoint, its
+      // rejection reason is the point.
+      const detail = await data.text().catch(() => "");
+      console.error("consent accept failed", data.status, detail);
       toast.add({
         id: "consent_error",
-        title: "Error",
-        description: `An error occurred while saving your consent. Please try again`,
+        title: `Error ${data.status}`,
+        description:
+          detail.slice(0, 300) ||
+          `An error occurred while saving your consent. Please try again`,
         color: "red",
       });
     }

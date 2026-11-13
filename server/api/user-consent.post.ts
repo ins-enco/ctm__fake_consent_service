@@ -4,6 +4,7 @@ import {
   parseConsentUid,
   LEGACY_CONSENT_TYPE,
 } from "~/utils/consentHandover";
+import { BACKEND_LEGACY_CONSENT_PATH } from "~/utils/backendForward";
 
 /**
  * Legacy consent journey (ConsentType = 0) — the endpoint GBE calls.
@@ -25,6 +26,12 @@ import {
  * parameters, which is what GBE sends.
  */
 export default defineEventHandler(async (event) => {
+  // With CTM_BACKEND_URL set, the real backend answers this callback — no local
+  // validation, no local DB write. See server/utils/ctmBackend.ts.
+  if (isCtmBackendConfigured(event)) {
+    return forwardToCtmBackend(event, BACKEND_LEGACY_CONSENT_PATH);
+  }
+
   setHeader(event, "Content-Type", "application/json");
 
   const query = getQuery(event);
